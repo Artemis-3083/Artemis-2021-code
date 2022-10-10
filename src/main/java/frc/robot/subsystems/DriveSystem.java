@@ -59,6 +59,40 @@ public class DriveSystem extends SubsystemBase {
         resetEncoders();
     }
 
+    public void bensDriveCommand(double R2, double L2, double turn){
+        R2 = Math.min(1, Math.max(0, R2));
+        L2 = Math.min(1, Math.max(0, L2));
+        System.out.println(turn);
+        if (R2 > 0){
+            talonLF.set(R2 * 0.5 - turn * 0.5);
+            talonLR.set(R2 * 0.5 - turn * 0.5);
+            talonRR.set(R2 * 0.5 + turn * 0.5);
+            talonRF.set(R2 * 0.5 + turn * 0.5);
+        }else if (L2 > 0){
+            talonLF.set(-L2 * 0.5 - turn * 0.5);
+            talonLR.set(-L2 * 0.5 - turn * 0.5);
+            talonRR.set(-L2 * 0.5 + turn * 0.5);
+            talonRF.set(-L2 * 0.5 + turn * 0.5);
+        }else{
+            if(turn > 0.05){
+                talonLF.set(-turn);
+                talonLR.set(-turn);
+                talonRR.set(turn);
+                talonRF.set(turn);
+            }else if(turn < - 0.05){
+                talonLF.set(-turn);
+                talonLR.set(-turn);
+                talonRR.set(turn);
+                talonRF.set(turn);
+            }else{
+                talonLF.set(0);
+                talonLR.set(0);
+                talonRR.set(0);
+                talonRF.set(0);
+            }
+        }
+    }
+
     public void arcadeDrive(double moveValue, double rotateValue) {
         double rSpeed, lSpeed;
 
@@ -95,6 +129,22 @@ public class DriveSystem extends SubsystemBase {
         return encoders.getDistancePassedM();
     }
 
+    public double getDriveRrRpm() {
+        return talonRR.get();
+    }
+
+    public double getDriveLrRpm() {
+        return talonLR.get();
+    }
+
+    public double getDriveLfRpm() {
+        return talonLF.get();
+    }
+
+    public double getDriveRfRpm() {
+        return talonRF.get();
+    }
+
     public void resetEncoders() {
         encoders.resetEncoders();
     }
@@ -102,10 +152,10 @@ public class DriveSystem extends SubsystemBase {
 
     public void drive_func(double lSpeed, double rSpeed) {
         if (lSpeed > Constants.MIN_SPEED || lSpeed < -Constants.MIN_SPEED || rSpeed < -Constants.MIN_SPEED || rSpeed > Constants.MIN_SPEED) {
-            talonLR.set(lSpeed * 1.5);
-            talonLF.set(lSpeed * 1.5);
-            talonRR.set(rSpeed * 1.5);
-            talonRF.set(rSpeed * 1.5);
+            talonLR.set(rSpeed * 1);
+            talonLF.set(rSpeed * 1);
+            talonRR.set(lSpeed * 1);
+            talonRF.set(lSpeed * 1);
         } else {
             talonLR.set(0);
             talonLF.set(0);
