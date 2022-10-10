@@ -33,6 +33,7 @@ import frc.robot.commands.ShootWithWheelsCommand;
 import frc.robot.commands.ShooterTowerMoveCommand;
 import frc.robot.commands.TogglePressure;
 import frc.robot.commands.UnLoadCommand;
+import frc.robot.commands.benDriveCommand;
 import frc.robot.subsystems.CollectorSystem;
 import frc.robot.subsystems.DriveSystem;
 import frc.robot.subsystems.ElevatorSystem;
@@ -105,7 +106,8 @@ public class Robot extends TimedRobot {
          */
         //shootSystem.setDefaultCommand(new ShootWithWheelsCommand(shootSystem, shootSystem.getShooterRpm()));
 
-        driveSystem.setDefaultCommand(new NewDriveCommand(driveSystem, controller));
+        //driveSystem.setDefaultCommand(new NewDriveCommand(driveSystem, controller));
+        driveSystem.setDefaultCommand(new benDriveCommand(driveSystem, controller));
         towerSystem.setDefaultCommand(new ShooterTowerMoveCommand(towerSystem, seccontroller));
         //shootSystem.setDefaultCommand(new NewAutomaticShootingCommand(limeLightImageProcessing, shootSystem));
         //shootSystem.setDefaultCommand(new ShootWithWheelsCommand (shootSystem, shootSystem.getShooterRpm()));
@@ -116,16 +118,21 @@ public class Robot extends TimedRobot {
                 .whileHeld(new CollectorPneumaticLowerCommand(collectorsystem));
         new JoystickButton(seccontroller, PS4Controller.Button.kL1.value)
                 .whileHeld(new CollectorCollectCommand(collectorsystem, feederSystem));
-        new JoystickButton(seccontroller, PS4Controller.Button.kR1.value)
-                .whileHeld(new FeedCommand(feederSystem));
-        /*new JoystickButton(seccontroller, PS4Controller.Button.kR2.value)
-                .whenActive(new ShootWithWheelsCommand(shootSystem, seccontroller, shootSystem.getShooterRpm()));*/
-        new JoystickButton(seccontroller, PS4Controller.Button.kTriangle.value)
-                .whenActive(new LimeLightTowerAngle(limeLightImageProcessing, towerSystem));
-        new JoystickButton(seccontroller, PS4Controller.Button.kSquare.value)
-                .whileHeld(new ConveyorCommand(feederSystem));
         new JoystickButton(seccontroller, PS4Controller.Button.kCross.value)
                 .whileHeld(new UnLoadCommand(feederSystem, collectorsystem));
+
+        /*new JoystickButton(seccontroller, PS4Controller.Button.kR2.value)
+                .whenActive(new ShootWithWheelsCommand(shootSystem, seccontroller, shootSystem.getShooterRpm()));*/
+        new JoystickButton(seccontroller, PS4Controller.Button.kR2.value)
+                .whileHeld(new NewAutomaticShootingCommand(limeLightImageProcessing, shootSystem));
+        /*new JoystickButton(seccontroller, PS4Controller.Button.kR2.value)
+                .whileHeld(new ShootAtRpm(shootSystem, 5000));*/
+
+        new JoystickButton(seccontroller, PS4Controller.Button.kTriangle.value)
+                .whenActive(new LimeLightTowerAngle(limeLightImageProcessing, towerSystem));
+        new JoystickButton(seccontroller, PS4Controller.Button.kR1.value)
+                .whileHeld(new FeedCommand(feederSystem));
+        
         new JoystickButton(seccontroller, PS4Controller.Button.kCircle.value)
                 .whileHeld(new ShootAtRpm(shootSystem, 800)); //215cm = 8.388 Voltage*/
 
@@ -133,11 +140,11 @@ public class Robot extends TimedRobot {
                 .whileHeld(new AutomaticShootingCommand(shootSystem, limeLightImageProcessing));*/
 
 
-        new JoystickButton(controller, PS4Controller.Button.kCircle.value)
+        new JoystickButton(seccontroller, PS4Controller.Button.kSquare.value)
                 .whenActive(new TogglePressure(elevatorSystem));
-        new POVButton(controller, 270)
+        new POVButton(seccontroller, 270)
                 .whileHeld(new MoveElevatorUp(elevatorSystem));
-        new POVButton(controller, 90)
+        new POVButton(seccontroller, 90)
                 .whileHeld(new MoveElevatorDown(elevatorSystem));
 
         SmartDashboard.putData("Reset Tower Pos", new InstantCommand(()-> towerSystem.resetTowerPosition()));
@@ -163,6 +170,10 @@ public class Robot extends TimedRobot {
 
         SmartDashboard.putNumber("Drive L", driveSystem.getDistancePassedLeftM());
         SmartDashboard.putNumber("Drive R", driveSystem.getDistancePassedRightM());
+        SmartDashboard.putNumber("Drive motor LF", driveSystem.getDriveLfRpm());
+        SmartDashboard.putNumber("Drive motor RF", driveSystem.getDriveRfRpm());
+        SmartDashboard.putNumber("Drive motor LR", driveSystem.getDriveLrRpm());
+        SmartDashboard.putNumber("Drive motor RR", driveSystem.getDriveRrRpm());
 
         SmartDashboard.putNumber("Shooter Pos", towerSystem.getTowerPosition());
         SmartDashboard.putNumber("Shooter RPM", shootSystem.getShooterRpm());
@@ -203,12 +214,13 @@ public class Robot extends TimedRobot {
 
     @Override
     public void autonomousInit() {
-        Command driveDistance = new DriveDistance(driveSystem, 1);
+        Command driveDistance = new DriveDistance(driveSystem, 3);
         Command collectorDown = new CollectAndMoveDown(collectorsystem, feederSystem);
         /*autoCommand = new DriveDistance(driveSystem, 2).andThen(new WaitCommand(1), createShootCommand())
                 .andThen(driveDistance.raceWith(collectorDown)).andThen(createShootCommand());*/
                 //autoCommand = createShootCommand();
-                autoCommand = new DriveDistance(driveSystem, 1).andThen(new WaitCommand(1), createShootCommand());
+        //autoCommand = new DriveDistance(driveSystem, 1).andThen(new WaitCommand(1), createShootCommand());
+        autoCommand = createShootCommand().andThen(driveDistance);
         if (autoCommand != null) {
                 autoCommand.schedule();
         }
@@ -220,7 +232,8 @@ public class Robot extends TimedRobot {
         Command waitFeed = new WaitCommand(2);
         Command feed = new FeedCommand(feederSystem);
         //Command beforeAuto = shoot.alongWith(LimeligtAngle);
-        return LimeligtAngle.andThen(shoot).alongWith(waitFeed.andThen(feed)).withTimeout(4); 
+        //return LimeligtAngle.andThen(shoot).alongWith(waitFeed.andThen(feed)).withTimeout(4);
+        return new ShootAtRpm(shootSystem, 800).alongWith(new WaitCommand(2).andThen(feed)).withTimeout(3);
     }
     
     @Override
