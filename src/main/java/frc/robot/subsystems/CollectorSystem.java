@@ -19,12 +19,12 @@ public class CollectorSystem extends SubsystemBase {
  
   public CollectorSystem() {
     collectorMotor = new CANSparkMax(10, MotorType.kBrushless);
-    collectorMotor.setInverted(true);
+    collectorMotor.setInverted(false);
     collectorSolenoid = new Solenoid(PneumaticsModuleType.CTREPCM, 6);
   }
  
   public void CollectorFunction(){
-    collectorMotor.set(-1);
+    collectorMotor.set(1);
   }
 
   public void StopCollect() {
