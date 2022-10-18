@@ -62,17 +62,18 @@ public class DriveSystem extends SubsystemBase {
     public void bensDriveCommand(double R2, double L2, double turn){
         R2 = Math.min(1, Math.max(0, R2));
         L2 = Math.min(1, Math.max(0, L2));
-        System.out.println(turn);
+        double turnModifier = 0.55;
+        double triggerModifier = 0.55;
         if (R2 > 0){
-            talonLF.set(R2 * 0.5 - turn * 0.5);
-            talonLR.set(R2 * 0.5 - turn * 0.5);
-            talonRR.set(R2 * 0.5 + turn * 0.5);
-            talonRF.set(R2 * 0.5 + turn * 0.5);
+            talonLF.set(R2 * triggerModifier - turn * turnModifier);
+            talonLR.set(R2 * triggerModifier - turn * turnModifier);
+            talonRR.set(R2 * triggerModifier + turn * turnModifier);
+            talonRF.set(R2 * triggerModifier + turn * turnModifier);
         }else if (L2 > 0){
-            talonLF.set(-L2 * 0.5 - turn * 0.5);
-            talonLR.set(-L2 * 0.5 - turn * 0.5);
-            talonRR.set(-L2 * 0.5 + turn * 0.5);
-            talonRF.set(-L2 * 0.5 + turn * 0.5);
+            talonLF.set(-L2 * triggerModifier - turn * turnModifier);
+            talonLR.set(-L2 * triggerModifier - turn * turnModifier);
+            talonRR.set(-L2 * triggerModifier + turn * turnModifier);
+            talonRF.set(-L2 * triggerModifier + turn * turnModifier);
         }else{
             if(turn > 0.05){
                 talonLF.set(-turn);

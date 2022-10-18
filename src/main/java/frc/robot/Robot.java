@@ -34,6 +34,8 @@ import frc.robot.commands.ShooterTowerMoveCommand;
 import frc.robot.commands.TogglePressure;
 import frc.robot.commands.UnLoadCommand;
 import frc.robot.commands.benDriveCommand;
+import frc.robot.commands.collect;
+import frc.robot.commands.trioCollect;
 import frc.robot.subsystems.CollectorSystem;
 import frc.robot.subsystems.DriveSystem;
 import frc.robot.subsystems.ElevatorSystem;
@@ -134,7 +136,7 @@ public class Robot extends TimedRobot {
                 .whileHeld(new FeedCommand(feederSystem));
         
         new JoystickButton(seccontroller, PS4Controller.Button.kCircle.value)
-                .whileHeld(new ShootAtRpm(shootSystem, 800)); //215cm = 8.388 Voltage*/
+                .whileHeld(new ShootAtRpm(shootSystem, 900)); //215cm = 8.388 Voltage*/
 
         /*new JoystickButton(seccontroller, PS4Controller.Button.kR2.value)
                 .whileHeld(new AutomaticShootingCommand(shootSystem, limeLightImageProcessing));*/
@@ -215,12 +217,13 @@ public class Robot extends TimedRobot {
     @Override
     public void autonomousInit() {
         Command driveDistance = new DriveDistance(driveSystem, 3);
-        Command collectorDown = new CollectAndMoveDown(collectorsystem, feederSystem);
+        //Command collectorDown = new CollectAndMoveDown(collectorsystem, feederSystem);
+        Command collectorDown = new CollectorPneumaticLiftCommand(collectorsystem);
         /*autoCommand = new DriveDistance(driveSystem, 2).andThen(new WaitCommand(1), createShootCommand())
                 .andThen(driveDistance.raceWith(collectorDown)).andThen(createShootCommand());*/
                 //autoCommand = createShootCommand();
         //autoCommand = new DriveDistance(driveSystem, 1).andThen(new WaitCommand(1), createShootCommand());
-        autoCommand = createShootCommand().andThen(driveDistance);
+        autoCommand = /*collectorDown.withTimeout(1).andThen(*/createShootCommand().andThen(driveDistance);//.alongWith(collectorDown);//.andThen(new collect(collectorsystem));
         if (autoCommand != null) {
                 autoCommand.schedule();
         }
@@ -231,9 +234,10 @@ public class Robot extends TimedRobot {
         Command LimeligtAngle = new LimeLightTowerAngle(limeLightImageProcessing, towerSystem);
         Command waitFeed = new WaitCommand(2);
         Command feed = new FeedCommand(feederSystem);
+        Command collectNFeed = new CollectorCollectCommand(collectorsystem, feederSystem);
         //Command beforeAuto = shoot.alongWith(LimeligtAngle);
         //return LimeligtAngle.andThen(shoot).alongWith(waitFeed.andThen(feed)).withTimeout(4);
-        return new ShootAtRpm(shootSystem, 800).alongWith(new WaitCommand(2).andThen(feed)).withTimeout(3);
+        return new ShootAtRpm(shootSystem, 1050).alongWith(new WaitCommand(2).andThen(new trioCollect(feederSystem))).withTimeout(6);
     }
     
     @Override
