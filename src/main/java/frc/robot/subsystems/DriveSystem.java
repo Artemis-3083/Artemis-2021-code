@@ -5,10 +5,21 @@
 package frc.robot.subsystems;
 
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonFX;
+import com.kauailabs.navx.frc.AHRS;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.controller.RamseteController;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
+import edu.wpi.first.math.kinematics.DifferentialDriveWheelSpeeds;
+import edu.wpi.first.math.trajectory.Trajectory;
 import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.SPI.Port;
 import edu.wpi.first.wpilibj.simulation.DifferentialDrivetrainSim;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.RamseteCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Robot;
@@ -21,7 +32,9 @@ public class DriveSystem extends SubsystemBase {
     private WPI_TalonFX talonLR;
     private WPI_TalonFX talonRR;
     private WPI_TalonFX talonRF;
+    private AHRS navx;
 
+    private final DifferentialDriveOdometry odometry;
     private final DifferentialDrivetrainSim driveTrainSim;
     private final Field2d field;
     private final DriveTrainEncoders encoders;
@@ -32,6 +45,9 @@ public class DriveSystem extends SubsystemBase {
         talonLR = new WPI_TalonFX(1);
         talonRR = new WPI_TalonFX(3);
         talonRF = new WPI_TalonFX(4);
+
+        odometry = new DifferentialDriveOdometry(Rotation2d.fromDegrees(0));
+        navx = new AHRS(Port.kMXP);
 
         if (Robot.isSimulation()) {
             driveTrainSim = new DifferentialDrivetrainSim(
@@ -59,21 +75,49 @@ public class DriveSystem extends SubsystemBase {
         resetEncoders();
     }
 
+    public Command followTrajectory(Trajectory trajectory) {
+        RamseteCommand ramseteCommand =
+        new RamseteCommand(
+            trajectory,
+            odometry::getPoseMeters,
+            new RamseteController(RobotCharacteristics.kRamseteB, RobotCharacteristics.kRamseteZeta),
+            new SimpleMotorFeedforward(
+                RobotCharacteristics.ksVolts,
+                RobotCharacteristics.kvVoltSecondsPerMeter,
+                RobotCharacteristics.kaVoltSecondsSquaredPerMeter),
+                RobotCharacteristics.kDriveKinematics,
+                ()-> new DifferentialDriveWheelSpeeds(encoders.getLeftVelocityMetersPerSecond(), encoders.getRightVelocityMetersPerSecond()),
+                new PIDController(RobotCharacteristics.kPDriveVel, 0, 0),
+                new PIDController(RobotCharacteristics.kPDriveVel, 0, 0),
+                // RamseteCommand passes volts to the callback
+                this::tankDriveVolts,
+                this);
+
+        // Reset odometry to the starting pose of the trajectory.
+        odometry.resetPosition(trajectory.getInitialPose(), navx.getRotation2d());
+
+        // Run path following command, then stop at the end.
+        return ramseteCommand.andThen(() -> tankDriveVolts(0, 0));
+    }
+
+    public void tankDriveVolts(double right, double left) {
+        drive_func(left / RobotController.getBatteryVoltage(), right / RobotController.getBatteryVoltage());
+    }
+
     public void bensDriveCommand(double R2, double L2, double turn){
         R2 = Math.min(1, Math.max(0, R2));
         L2 = Math.min(1, Math.max(0, L2));
-        double turnModifier = 0.55;
-        double triggerModifier = 0.55;
+        System.out.println(turn);
         if (R2 > 0){
-            talonLF.set(R2 * triggerModifier - turn * turnModifier);
-            talonLR.set(R2 * triggerModifier - turn * turnModifier);
-            talonRR.set(R2 * triggerModifier + turn * turnModifier);
-            talonRF.set(R2 * triggerModifier + turn * turnModifier);
+            talonLF.set(R2 * 0.5 - turn * 0.5);
+            talonLR.set(R2 * 0.5 - turn * 0.5);
+            talonRR.set(R2 * 0.5 + turn * 0.5);
+            talonRF.set(R2 * 0.5 + turn * 0.5);
         }else if (L2 > 0){
-            talonLF.set(-L2 * triggerModifier - turn * turnModifier);
-            talonLR.set(-L2 * triggerModifier - turn * turnModifier);
-            talonRR.set(-L2 * triggerModifier + turn * turnModifier);
-            talonRF.set(-L2 * triggerModifier + turn * turnModifier);
+            talonLF.set(-L2 * 0.5 - turn * 0.5);
+            talonLR.set(-L2 * 0.5 - turn * 0.5);
+            talonRR.set(-L2 * 0.5 + turn * 0.5);
+            talonRF.set(-L2 * 0.5 + turn * 0.5);
         }else{
             if(turn > 0.05){
                 talonLF.set(-turn);
@@ -171,6 +215,12 @@ public class DriveSystem extends SubsystemBase {
         talonLF.set(0);
         talonRR.set(0);
         talonRF.set(0);
+    }
+
+    @Override
+    public void periodic() {
+        odometry.update(navx.getRotation2d(), getDistancePassedM(), getDistancePassedLeftM());
+        field.setRobotPose(odometry.getPoseMeters());
     }
 
     @Override

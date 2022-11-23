@@ -41,6 +41,22 @@ public class DriveTrainEncoders {
         }
     }
 
+    public double getLeftVelocityMetersPerSecond() {
+        if (Robot.isReal()) {
+            return talonLF.getSelectedSensorPosition() / Constants.TALON_FX_PPR / Constants.DRIVE_GEAR_RATIO * 10.0 * Constants.DRIVE_WHEEL_CIRCUMEFERENCE_M;
+        } else {
+            return driveTrainSim.getLeftVelocityMetersPerSecond();
+        }
+    }
+
+    public double getRightVelocityMetersPerSecond() {
+        if (Robot.isReal()) {
+            return talonRF.getSelectedSensorVelocity() / Constants.TALON_FX_PPR / Constants.DRIVE_GEAR_RATIO / 10.0 * Constants.DRIVE_WHEEL_CIRCUMEFERENCE_M;
+        } else {
+            return driveTrainSim.getRightVelocityMetersPerSecond();
+        }
+    }
+
     public double getDistancePassedM() {
         return (getDistancePassedLeftM() + getDistancePassedRightM()) / 2.0;
     }

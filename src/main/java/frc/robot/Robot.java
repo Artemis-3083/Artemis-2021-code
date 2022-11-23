@@ -1,6 +1,18 @@
 package frc.robot;
 
+import java.util.List;
+
+import org.ejml.equation.ManagerFunctions.Input1;
+
 import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.trajectory.Trajectory;
+import edu.wpi.first.math.trajectory.TrajectoryConfig;
+import edu.wpi.first.math.trajectory.TrajectoryGenerator;
+import edu.wpi.first.math.trajectory.constraint.DifferentialDriveVoltageConstraint;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Compressor;
@@ -34,8 +46,6 @@ import frc.robot.commands.ShooterTowerMoveCommand;
 import frc.robot.commands.TogglePressure;
 import frc.robot.commands.UnLoadCommand;
 import frc.robot.commands.benDriveCommand;
-import frc.robot.commands.collect;
-import frc.robot.commands.trioCollect;
 import frc.robot.subsystems.CollectorSystem;
 import frc.robot.subsystems.DriveSystem;
 import frc.robot.subsystems.ElevatorSystem;
@@ -136,7 +146,7 @@ public class Robot extends TimedRobot {
                 .whileHeld(new FeedCommand(feederSystem));
         
         new JoystickButton(seccontroller, PS4Controller.Button.kCircle.value)
-                .whileHeld(new ShootAtRpm(shootSystem, 900)); //215cm = 8.388 Voltage*/
+                .whileHeld(new ShootAtRpm(shootSystem, 800)); //215cm = 8.388 Voltage*/
 
         /*new JoystickButton(seccontroller, PS4Controller.Button.kR2.value)
                 .whileHeld(new AutomaticShootingCommand(shootSystem, limeLightImageProcessing));*/
@@ -167,7 +177,6 @@ public class Robot extends TimedRobot {
     @Override
     public void robotPeriodic() {
         CommandScheduler.getInstance().run();
-
         double interrpm = 0.0001*Math.pow(limeLightImageProcessing.getTargetDistance(), 3) - 0.0808 * Math.pow(limeLightImageProcessing.getTargetDistance(), 2) + 21.267 * limeLightImageProcessing.getTargetDistance() + 238.02;
 
         SmartDashboard.putNumber("Drive L", driveSystem.getDistancePassedLeftM());
@@ -176,6 +185,7 @@ public class Robot extends TimedRobot {
         SmartDashboard.putNumber("Drive motor RF", driveSystem.getDriveRfRpm());
         SmartDashboard.putNumber("Drive motor LR", driveSystem.getDriveLrRpm());
         SmartDashboard.putNumber("Drive motor RR", driveSystem.getDriveRrRpm());
+        SmartDashboard.putNumber("i shoot niggers for fun", interrpm);
 
         SmartDashboard.putNumber("Shooter Pos", towerSystem.getTowerPosition());
         SmartDashboard.putNumber("Shooter RPM", shootSystem.getShooterRpm());
@@ -216,17 +226,48 @@ public class Robot extends TimedRobot {
 
     @Override
     public void autonomousInit() {
-        Command driveDistance = new DriveDistance(driveSystem, 3);
+        //Command driveDistance = new DriveDistance(driveSystem, 3);
         //Command collectorDown = new CollectAndMoveDown(collectorsystem, feederSystem);
-        Command collectorDown = new CollectorPneumaticLiftCommand(collectorsystem);
         /*autoCommand = new DriveDistance(driveSystem, 2).andThen(new WaitCommand(1), createShootCommand())
                 .andThen(driveDistance.raceWith(collectorDown)).andThen(createShootCommand());*/
                 //autoCommand = createShootCommand();
         //autoCommand = new DriveDistance(driveSystem, 1).andThen(new WaitCommand(1), createShootCommand());
-        autoCommand = /*collectorDown.withTimeout(1).andThen(*/createShootCommand().andThen(driveDistance);//.alongWith(collectorDown);//.andThen(new collect(collectorsystem));
+        /*autoCommand = createShootCommand().andThen(driveDistance);
         if (autoCommand != null) {
                 autoCommand.schedule();
-        }
+        }*/
+        DifferentialDriveVoltageConstraint autoVoltageConstraint =
+                new DifferentialDriveVoltageConstraint(
+                new SimpleMotorFeedforward(
+                        RobotCharacteristics.ksVolts,
+                        RobotCharacteristics.kvVoltSecondsPerMeter,
+                        RobotCharacteristics.kaVoltSecondsSquaredPerMeter),
+                        RobotCharacteristics.kDriveKinematics,
+                10);
+
+        // Create config for trajectory
+        TrajectoryConfig config =
+                new TrajectoryConfig(
+                        RobotCharacteristics.kMaxSpeedMetersPerSecond,
+                        RobotCharacteristics.kMaxAccelerationMetersPerSecondSquared)
+                // Add kinematics to ensure max speed is actually obeyed
+                .setKinematics(RobotCharacteristics.kDriveKinematics)
+                // Apply the voltage constraint
+                .addConstraint(autoVoltageConstraint);
+
+        // An example trajectory to follow.  All units in meters.
+        Trajectory exampleTrajectory =
+                TrajectoryGenerator.generateTrajectory(
+                // Start at the origin facing the +X direction
+                new Pose2d(0, 0, new Rotation2d(0)),
+                // Pass through these two interior waypoints, making an 's' curve path
+                List.of(),
+                // End 3 meters straight ahead of where we started, facing forward
+                new Pose2d(1, 0, new Rotation2d(0)),
+                // Pass config
+                config);
+        autoCommand = driveSystem.followTrajectory(exampleTrajectory);
+        autoCommand.schedule();
     }
 
     private Command createShootCommand() {
@@ -234,10 +275,9 @@ public class Robot extends TimedRobot {
         Command LimeligtAngle = new LimeLightTowerAngle(limeLightImageProcessing, towerSystem);
         Command waitFeed = new WaitCommand(2);
         Command feed = new FeedCommand(feederSystem);
-        Command collectNFeed = new CollectorCollectCommand(collectorsystem, feederSystem);
         //Command beforeAuto = shoot.alongWith(LimeligtAngle);
         //return LimeligtAngle.andThen(shoot).alongWith(waitFeed.andThen(feed)).withTimeout(4);
-        return new ShootAtRpm(shootSystem, 1050).alongWith(new WaitCommand(2).andThen(new trioCollect(feederSystem))).withTimeout(6);
+        return new ShootAtRpm(shootSystem, 800).alongWith(new WaitCommand(2).andThen(feed)).withTimeout(3);
     }
     
     @Override
